@@ -1,0 +1,64 @@
+import serial
+import time
+
+def connect_gaussmeter(port, baudrate=9600, timeout=2):
+        #what is baudrate?
+    try:
+        ser = serial.Serial(port, baudrate, timeout=timeout)
+        print(f"Connected to Gaussmeter on {port}")
+        return ser
+    except Exception as e:
+        print(f"Error connecting to Gaussmeter: {e}")
+        return None
+    
+def read_magnetic_field(ser):
+    #reads magnetic field from Gaussmeter
+
+    try:
+        ser.write(b'RdGFIELD?\n') #reads field strenth
+        time.sleep(0.1)
+        response = ser.readline().decode().strip()
+        return float(response) if response else None
+    except Exception as e:
+        print(f"Error reading magnetic field: {e}")
+        return None
+    
+def calculate_indunctance(voltage, current, field, turns, coil_area, coil_length):
+       
+MU_0 = 4 * 3.1416 * 1e-7 #permiability of free space (H/m)
+
+if current == 0:
+    print("Error: Current must be nonzero to calculate inductance.")
+    return None
+
+B_calculated = (MU_0 * turns * current) / coil_length #theoretical B field
+if B_calculated == 0:
+    print("Error: invalid calculated B-field value.")
+    return None
+
+inductance = (turns ** 2 * MU_0 * coil_area) / coil_length
+return inductance
+
+# === User Parameters ===
+PORT = "COM3"  # Change based on your system (e.g., "/dev/ttyUSB0" for Linux)
+BAUDRATE = 9600
+VOLTAGE = 5.0   # Applied voltage (Volts)
+CURRENT = 0.5   # Applied current (Amps)
+TURNS = 1000    # Number of turns in the coil
+COIL_AREA = 0.01  # Cross-sectional area in m²
+COIL_LENGTH = 0.05  # Length of coil in meters
+
+# === Main Execution ===
+ser = connect_gaussmeter(PORT, BAUDRATE)
+
+if ser:
+    field = read_magnetic_field(ser)
+    if field is not None:
+        print(f"Measured Magnetic Field: {field} Gauss")
+        inductance = calculate_inductance(VOLTAGE, CURRENT, field, TURNS, COIL_AREA, COIL_LENGTH)
+        if inductance:
+            print(f"Estimated Inductance: {inductance:.6f} H")
+    ser.close()
+
+#troubleshoot with manuel, if RDGFIELD? works for lakeshore 425
+    
